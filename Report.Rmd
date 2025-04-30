@@ -1,0 +1,814 @@
+---
+title: ""
+author: ""
+output:
+  pdf_document:
+    number_sections: true
+    citation_package: natbib
+    latex_engine: pdflatex
+    pandoc_args:
+      - "--variable=colorlinks=true"
+      - "--variable=urlcolor=blue"
+      - "--variable=citecolor=blue"
+    fig_width: 6.5
+    fig_height: 4
+  word_document: default
+  html_document:
+    df_print: paged
+bibliography: references.assignment.bib
+biblio-style: plainnat
+link-citations: true
+nocite: "@*"
+header-includes:
+  - \usepackage{mathtools}
+  - \usepackage{amsmath}
+  - \usepackage{amsthm}
+  - \newtheorem{theorem}{Theorem}[section]
+  - \newtheorem{corollary}[theorem]{Corollary}
+  - \newtheorem{lemma}{Lemma}[section]
+  - \newcommand{\lemref}[1]{Lemma~\ref{#1}}
+  - \usepackage{hyperref}
+  - \usepackage{marvosym}   
+  - \usepackage{geometry}
+  - \usepackage{float}
+  - \usepackage{placeins}
+  - \usepackage{booktabs}
+  - \usepackage{colortbl}
+  - \usepackage{caption}
+  - \usepackage{fontawesome5}
+  - \usepackage{academicons}
+  - \usepackage{xcolor}
+  - \usepackage{mdframed}
+  - \definecolor{mygrey}{RGB}{240,240,240}
+  - \geometry{paperwidth=6.5in, paperheight=9in, left=0.5in, right=0.5in, top=0.5in, bottom=0.5in}
+  - \usepackage{setspace}
+  - \onehalfspacing
+  - \usepackage[fontsize=10pt]{scrextend}
+  - \numberwithin{equation}{section}
+  - \renewcommand{\sectionautorefname}{Section}
+documentclass: extarticle
+---
+
+```{=latex}
+\begin{center}
+{\Large\textbf{Comprehensive Survival Analysis of Heart Transplant Outcomes Using the Stanford2 Dataset}}\\[1em]
+
+\large
+Rupanjan Mukherjee\textsuperscript{\dag}, Sourav Biswas\textsuperscript{\ddag}, Subhendu Ghosh\textsuperscript{\dag\dag}\\[0.5em]
+\small
+\textsuperscript{\dag}\textsuperscript{\ddag}\textsuperscript{\dag\dag}\textit{Indian Statistical Institute, Kolkata}\\[0.5em]
+Roll Numbers: \textsuperscript{\dag} MD2314,
+\textsuperscript{\ddag} MD2320,
+\textsuperscript{\dag\dag} MD2322\\[0.5em]
+\footnotesize
+\Letter{} E-mail: \textsuperscript{\dag} \href{mailto:rup629063@gmail.com}{rup629063@gmail.com},
+\textsuperscript{\ddag}  \href{mailto:sourav3biswas2003@gmail.com}{sourav3biswas2003@gmail.com},
+\textsuperscript{\dag\dag} \href{mailto:subhendug051@gmail.com}{subhendug051@gmail.com}
+\end{center}
+```
+
+```{r setup, include=FALSE}
+knitr::opts_chunk$set(echo = TRUE,comment=NA,fig.pos="H")
+```
+
+```{r,echo=F}
+keywords = c("Tarone-Ware Test","Kaplan-Meier Survival Curve","Nelson-Aalen Cumulative Hazard function","Log-Rank Test","Generalized Gehan's Test","Omnibus \\(\\chi^2\\) Test","Cox-Snell Residuals","Cox Proportional Hazard Model","Accelerating Failure Time Model","Schoenfeld Residuals","Akaike Information Criterion","Greenwood's Formula","Breslow's Baseline Hazard Esimate","Maximum Partial Likelihood Estimate","Hall-Wellner Band","Equi-Probable Band")
+sorted_keywords=sort(keywords)
+```
+
+\begin{mdframed}[backgroundcolor=mygrey, linewidth=0pt, skipabove=10pt, skipbelow=10pt]
+\raggedright
+\textbf{Abstract} \\
+This study analyzes survival outcomes in heart transplant patients using the stanford2 dataset from R’s survival package, incorporating time-to-event data, age, and T5 mismatch score. Employing non-parametric (Kaplan-Meier, Nelson-Aalen), hypothesis testing (Log-rank, Gehan, Tarone-Ware), semi-parametric (Cox proportional hazards), and parametric (Weibull, log-normal AFT) methods, we evaluate model performance via AIC and compare parametric curves to Kaplan-Meier estimates. The results aim to identify an optimal prognostic model to guide clinical management of end-stage heart failure patients.
+
+\small
+\vspace{5pt}
+\par
+\textbf{Keywords:} `r paste(sorted_keywords,collapse=", ")`.
+\end{mdframed}
+
+# Introduction
+
+Heart transplantation represents the definitive therapeutic intervention for a select cohort of patients diagnosed with end-stage heart failure. The precise modeling of survival times is paramount for clinicians, enabling informed prognosis and effective patient management. This investigation undertakes a thorough survival analysis utilizing the `stanford2` dataset, accessible within R’s `survival` package, which encapsulates time-to-event data alongside pertinent covariates, namely age and T5 mismatch score.
+
+To elucidate survival dynamics, this study employs an array of statistical methodologies. Non-parametric techniques, including the Kaplan-Meier and Nelson-Aalen estimators, are utilized to characterize survival distributions. Hypothesis testing is conducted through the application of the Log-rank, Gehan, and Tarone-Ware tests to assess differences across groups. Furthermore, the semi-parametric Cox proportional hazards model is implemented to evaluate covariate effects, complemented by parametric Accelerated Failure Time (AFT) models based on Weibull and log-normal distributions. Model performance is rigorously compared using the Akaike Information Criterion (AIC), while the superposition of parametric survival curves against the Kaplan-Meier estimate serves to delineate the most efficacious prognostic framework.
+
+This comprehensive analytical approach aims to enhance the understanding of survival outcomes in heart transplantation, thereby supporting clinical decision-making.
+
+# About the Data
+
+The `stanford2` dataset provides the following variables for survival analysis:
+
+-   **`time`**: Survival time in days post heart transplantation.
+-   **`status`**: Event indicator ($1$ = death, $0$ = censored).
+-   **`age`**: Patient's age at transplantation in years.
+-   **`t5`**: T5 mismatch score, a measure of donor-recipient incompatibility.
+
+We have a total of $n=184$ observations, of which $71$ observations are right censored. Call the covariates age and T5 mismatch score by $Z_1$ and $Z_2$ respectively. For $i$th individual, survival time is $t_i$, age $z_{1i}$, t5 mismatch score $z_{2i}$ and censoring status $\delta_{i}$.
+
+# Research Objectives
+
+1.  Estimate the overall survival function for heart transplant patients in the Stanford2 dataset.
+
+2.  Assess survival differences across quartiles of T5 mismatch score and patient age.
+
+3.  Conduct hypothesis tests to compare survival distributions among stratified groups.
+
+4.  Develop and validate a Cox proportional hazards model to evaluate covariate effects.
+
+5.  Fit Weibull and log-normal Accelerated Failure Time (AFT) models and compare their performance using the Akaike Information Criterion (AIC).
+
+6.  Compare non-parametric and parametric survival curves to determine the optimal prognostic model.
+
+```{r,echo=F,message=F,warning=F}
+library(survival)
+library(survminer)
+library(flexsurv)
+library(dplyr)
+library(knitr)
+library(kableExtra)
+library(ggplot2)
+library(gridExtra)
+library(cowplot)
+library(ggsci)
+library(magrittr)
+library(grid)
+library(emplik)
+library(km.ci)
+```
+
+# Data Preparation
+
+The `stanford2` dataset is loaded, and variables (`id`, `time`, `status`, `age`, `t5`) are selected. Missing values are excluded. Age and T5 mismatch score are divided into four quartile groups, labeled as `age_group` (Q1 to Q4) and `t5_group` (Low, Medium, High, Very High). The resulting dataset, `stan2`, is previewed in \hyperref[tab:pst]{Table~\ref{tab:pst}} showing the first six rows.
+
+```{r,echo=F,warning=F}
+# Load & select only the available columns
+data(stanford2, package = "survival")
+stan2 <- stanford2 %>%
+  select(id, time, status, age, t5) %>%
+  na.omit() %>%
+  # Create quartile groups using ntile()
+  mutate(
+    age_group = ntile(age, 4),
+    t5_group  = ntile(t5, 4)
+  ) %>%
+  # Convert numeric quartiles into descriptive factors
+  mutate(
+    age_group = factor(age_group,
+                       levels = 1:4,
+                       labels = c("Q1", "Q2", "Q3", "Q4")),
+    t5_group  = factor(t5_group,
+                       levels = 1:4,
+                       labels = c("Low", "Medium", "High", "Very High"))
+  )
+
+# Preview data
+kable(head(stan2),
+      caption = "Preview of stanford2 with Quartile Groups",
+      booktabs = TRUE, 
+      format = "latex",
+      row.names = FALSE,
+      label = "pst") %>%
+  kable_styling(latex_options = c("HOLD_position", "striped"), 
+                font_size = 9) %>%
+  column_spec(1:7, width = "1.2cm") %>%
+  row_spec(0, bold = TRUE, color = "white", background = "#6B7280") %>%
+  row_spec(1:6, color = "black", background = "#F9FAFB")
+```
+
+# Kaplan-Meier Survival Curve
+
+Say, $Y_j=$ \# individuals at risk at time $t_j$ and $d_j=$ \# events at time $t_j$. Then the KM Estimator of the survival curve is given by,$$
+\hat{S}_{KM}\left(t\right)=\prod_{j:t_j\leq t}\left(1-\frac{d_j}{Y_j}\right),
+$$with Greenwood's pointwise variance,$$
+\widehat{\mathrm{Var}}\left(\hat{S}\left(t\right)\right)=\left(\hat{S}\left(t\right)\right)^2\sum_{j:\,t_j\leq t}\frac{d_j}{\left(Y_j-d_j\right)Y_j}.
+$$ @klein2003survival. The survival curve displays the estimated survival probability over time (in days) for the entire cohort of heart transplant patients from the Stanford2 dataset. The $x$-axis represents time post-transplantation, and the $y$-axis shows the survival probability, which decreases as time progresses due to patient mortality. The curve provides a visual summary of the overall survival trend.
+
+```{r,echo=F}
+km_all <- survfit(Surv(time, status) ~ 1, data = stan2)
+```
+
+```{r km_survival_plot, fig.cap="Overall Kaplan-Meier Survival Curve with Confidence Bands, Pointwise CI",fig.width=7, fig.height=4,echo=F,fig.id="km_survival",fig.align="center",warning=FALSE}
+#---Kaplan Meier Estimation---
+KM_fit=survfit(Surv(time,status)~1,data=stanford2)
+#--This gives the logtransformed CI--
+
+#---HAll-Wellner CB---
+hw_band <- km.ci(KM_fit, conf.level = 0.95, method = "hall-wellner")
+#--EP Band---
+ep_band <- km.ci(KM_fit, conf.level = 0.95, method = "epband")
+
+# Extract survival probabilities and pointwise CI
+km_data <- data.frame(
+  time = KM_fit$time,
+  surv = KM_fit$surv,
+  lower_ci = KM_fit$lower,
+  upper_ci = KM_fit$upper
+)
+# Extract band data
+hw_data <- data.frame(
+  time = hw_band$time,
+  lower_hw = hw_band$lower,
+  upper_hw = hw_band$upper
+)
+
+ep_data <- data.frame(
+  time = ep_band$time,
+  lower_ep = ep_band$lower,
+  upper_ep = ep_band$upper
+)
+# Merge data frames
+plot_data <- merge(km_data, hw_data, by = "time", all = TRUE)
+plot_data <- merge(plot_data, ep_data, by = "time", all = TRUE)
+
+# Remove any rows with NA in surv
+plot_data <- plot_data[!is.na(plot_data$surv), ]
+
+ggplot(plot_data, aes(x = time)) +
+  # Kaplan–Meier estimate
+  geom_step(aes(y = surv, color = "KM Estimate"), size = 1.2) +
+  
+  # Pointwise CI ribbons
+  geom_ribbon(aes(ymin = lower_ci, ymax = upper_ci, fill = "Pointwise CI"),
+              alpha = 0.25) +
+  
+  # Hall–Wellner ribbon
+  geom_ribbon(aes(ymin = lower_hw, ymax = upper_hw, fill = "HW Band"),
+              alpha = 0.20) +
+  
+  # Equal‐Precision ribbon
+  geom_ribbon(aes(ymin = lower_ep, ymax = upper_ep, fill = "EP Band"),
+              alpha = 0.15) +
+  
+  # Scale definitions
+  scale_color_manual(
+    values = c("KM Estimate" = "black")
+  ) +
+  scale_fill_manual(
+    values = c(
+      "Pointwise CI" = "#377eb8",   # blue
+      "HW Band"      = "#e41a1c",   # red
+      "EP Band"      = "#4daf4a"    # green
+    )
+  ) +
+  
+  # Labels
+  labs(
+    title    = "Kaplan–Meier Curve with Confidence Bands",
+    x        = "Time (days)",
+    y        = "Survival Probability",
+    color    = NULL,
+    fill     = NULL
+  ) +
+  
+  # Theme tweaks
+  theme_minimal(base_size = 14) +
+  theme(
+    plot.title        = element_text(face = "bold", hjust = 0.5),
+    axis.title        = element_text(face = "bold"),
+    legend.position   = "bottom",
+    legend.key.width  = unit(1.5, "cm"),
+    legend.text       = element_text(size = 12),
+    panel.grid.major  = element_line(color = "grey90"),
+    panel.grid.minor  = element_blank()
+  )
+
+```
+
+```{r,echo=F}
+# Estimates at yearly intervals
+km_sum <- summary(km_all, times = seq(0, max(stan2$time), by = 365))
+km_df <- data.frame(
+  Time = km_sum$time,
+  AtRisk = km_sum$n.risk,
+  Events = km_sum$n.event,
+  Survival = round(km_sum$surv, 4),
+  Variance = round(km_sum$std.err^2, 4),
+  Lower = round(km_sum$lower, 4),
+  Upper = round(km_sum$upper, 4)
+)
+```
+
+## Survival Estimates at Yearly Intervals
+
+\hyperref[tab:KM]{Table~\ref{tab:KM}} below presents survival statistics at annual time points:
+
+```{r,echo=F}
+kable(km_df,
+      caption = "KM Estimates at Yearly Intervals",
+      digits = 4,
+      format = "latex",
+      booktabs = TRUE,
+      label = "KM") %>%
+  kable_styling(latex_options = c("HOLD_position", "striped"),
+                font_size = 9) %>%
+  column_spec(1:6, width = "1.5cm") %>%
+  row_spec(0, bold = TRUE, color = "black", background = "#D1D5DB")
+```
+
+### Survival Analysis by T5 Mismatch Score Quartile
+
+To investigate the relationship between T5 mismatch scores and survival outcomes, we generated Kaplan-Meier survival curves stratified by quartiles of the T5 mismatch score: Low, Medium, High, and Very High. The survival plot in the following figure illustrates how survival probability changes over time for each group.
+
+-   **Low Mismatch Group**: This group exhibits the highest survival probabilities, with only a gradual decline over time.
+
+-   **Medium Mismatch Group**: The survival curve is slightly below that of the Low group but still shows relatively favorable survival outcomes.
+
+-   **High Mismatch Group**: A more pronounced decline in survival probability is observed, especially at later time points.
+
+-   **Very High Mismatch Group**: This group demonstrates the steepest drop in survival probability, suggesting poorer outcomes compared to the other quartiles.
+
+```{r km-t5, fig.width=7, fig.height=4,echo=F,fig.cap="Survival Curves by T5 Mismatch Scores"}
+km_t5 <- survfit(Surv(time, status) ~ t5_group, data = stan2)
+ggsurvplot(
+  km_t5, data = stan2,
+  conf.int = FALSE,
+  legend.title = "Mismatch Score",
+  xlab = "Time (days)",
+  ylab = "Survival Probability",
+  title = "Survival by Mismatch Score Quartile",
+  palette = "jco",
+  ggtheme = theme_minimal(base_size = 12)
+)
+```
+
+\FloatBarrier
+
+These trends indicate a potential association between higher T5 mismatch scores and reduced survival. However, statistical significance would need to be confirmed with additional tests (e.g., log-rank test).
+
+## Survival Analysis by Age Quartile
+
+The survival plot displays four Kaplan-Meier survival curves, one for each age quartile:
+
+-   **Q1 (Youngest)**: Typically shows the highest survival probability, with a slower decline over time, indicating better outcomes for younger patients.
+-   **Q2**: Exhibits a slightly steeper decline compared to Q1 but generally maintains favorable survival.
+-   **Q3**: Shows a more noticeable decrease in survival probability, suggesting moderate age-related impacts.
+-   **Q4 (Oldest)**: Demonstrates the steepest decline, indicating that older patients may have poorer survival outcomes.
+
+```{r km-age, fig.width=7, fig.height=4,echo=F,fig.cap="Survival Curves by Age"}
+km_age <- survfit(Surv(time, status) ~ age_group, data = stan2)
+ggsurvplot(
+  km_age, data = stan2,
+  conf.int = FALSE,
+  legend.title = "Age Quartile",
+  xlab = "Time (days)",
+  ylab = "Survival Probability",
+  title = "Survival by Age Quartile",
+  palette = "jco",
+  ggtheme = theme_minimal(base_size = 12)
+)
+```
+
+\FloatBarrier
+
+These trends suggest that older age at transplantation may be associated with reduced survival, though statistical significance requires further testing (e.g., log-rank test).
+
+# Nelson-Aalen Cumulative Hazard Estimation
+
+The Nelson-Aalen Cumulative Hazard estimate is,$$
+\tilde{H}\left(t\right)=\begin{cases}0&t<t_1\\\sum_{j:\,t_j\leq t}\frac{d_j}{Y_j}&\mathrm{o.w.}\end{cases}
+$$In a similar manner we have estimated the Cumulative Hazard Function $H\left(t\right)$, overall and based on `age_group` and `t5_group`. The three plots are shown below.
+
+```{r na-overall, fig.width=8, fig.height=4,echo=F,fig.cap="Nelson-Aalen Estimate of Cumulative Hazard Function"}
+na_all <- survfit(Surv(time, status) ~ 1,
+                  data = stan2,
+                  type = "fleming-harrington")
+ggsurvplot(
+  na_all, data = stan2,
+  fun = "cumhaz",
+  conf.int = FALSE,
+  xlab = "Time (days)",
+  ylab = "Cumulative Hazard",
+  title = "Overall Cumulative Hazard",
+  palette = "jco",
+  ggtheme = theme_minimal(base_size = 12)
+)
+```
+
+\FloatBarrier
+
+```{r na-t5, fig.width=8, fig.height=4,echo=F,fig.cap="Cumulative Hazard by T5 mismatch scores"}
+na_t5 <- survfit(Surv(time, status) ~ t5_group,
+                  data = stan2,
+                  type = "fleming-harrington")
+ggsurvplot(
+  na_t5, data = stan2,
+  fun = "cumhaz",
+  conf.int = FALSE,
+  legend.title = "Mismatch Score",
+  xlab = "Time (days)",
+  ylab = "Cumulative Hazard",
+  title = "Cumulative Hazard by Mismatch Score",
+  palette = "jco",
+  ggtheme = theme_minimal(base_size = 12)
+)
+```
+
+```{r na-age, fig.width=8, fig.height=4,echo=F,fig.cap="Cumulative Hazard by Age"}
+na_age <- survfit(Surv(time, status) ~ age_group,
+                  data = stan2,
+                  type = "fleming-harrington")
+ggsurvplot(
+  na_age, data = stan2,
+  fun = "cumhaz",
+  conf.int = FALSE,
+  legend.title = "Age Quartile",
+  xlab = "Time (days)",
+  ylab = "Cumulative Hazard",
+  title = "Cumulative Hazard by Age Quartile",
+  palette = "jco",
+  ggtheme = theme_minimal(base_size = 12)
+)
+```
+
+\FloatBarrier
+
+# Hypothesis Tests for Survival Differences
+
+We have created 4 groups based on each coavariate, age $\left(Z_1\right)$ and t5 score $\left(Z_2\right)$. Suppose $F_k,G_k$ be distribution functions of lifetime and censoring RV $\left(C_i\right)$ for the four groups. We are about to test, $$
+H_0^*:\left\{F_1=F_2=F_3=F_4\right\}\cap\left\{G_1=G_2=G_3=G_4\right\}
+$$against $H_1^*:H_0^*$ is false. Survival distributions were compared across T5 mismatch score and age quartile groups using three hypothesis tests: Log-rank, Gehan-Wilcoxon, and Tarone-Ware. Each test was performed separately for `t5_group` and `age_group`. Test statistics (chi-square) and p-values were calculated to determine if survival differences are statistically significant at level $\alpha=0.05$ ($p < 0.05$). Results are summarized in a table with grouped headers for each test type, showing test statistics and $p$-values for both covariates.
+
+\hyperref[tab:hyp]{Table~\ref{tab:hyp}} presents the results of the hypothesis tests for survival differences across T5 mismatch score and age quartiles:
+
+```{r,echo=F}
+# Tests for t5_group and age_group
+tests <- list(
+  logrank_t5 = survdiff(Surv(time, status) ~ t5_group, data = stan2),
+  logrank_age = survdiff(Surv(time, status) ~ age_group, data = stan2),
+  gehan_t5    = survdiff(Surv(time, status) ~ t5_group, data = stan2, rho = 1),
+  gehan_age   = survdiff(Surv(time, status) ~ age_group, data = stan2, rho = 1),
+  tw_t5       = survdiff(Surv(time, status) ~ t5_group, data = stan2, rho = 0.5),
+  tw_age      = survdiff(Surv(time, status) ~ age_group, data = stan2, rho = 0.5)
+)
+
+# Assemble results
+df_tests <- data.frame(
+  Covariate   = c("Mismatch Score", "Age Quartile"),
+  LogRank_TS  = c(tests$logrank_t5$chisq,  tests$logrank_age$chisq),
+  LogRank_p   = c(
+    format.pval(pchisq(tests$logrank_t5$chisq, df = 4 - 1, lower.tail = FALSE), digits = 3),
+    format.pval(pchisq(tests$logrank_age$chisq, df = 4 - 1, lower.tail = FALSE), digits = 3)
+  ),
+  Gehan_TS    = c(tests$gehan_t5$chisq,    tests$gehan_age$chisq),
+  Gehan_p     = c(
+    format.pval(pchisq(tests$gehan_t5$chisq, df = 4 - 1, lower.tail = FALSE), digits = 3),
+    format.pval(pchisq(tests$gehan_age$chisq, df = 4 - 1, lower.tail = FALSE), digits = 3)
+  ),
+  TW_TS       = c(tests$tw_t5$chisq,       tests$tw_age$chisq),
+  TW_p        = c(
+    format.pval(pchisq(tests$tw_t5$chisq, df = 4 - 1, lower.tail = FALSE), digits = 3),
+    format.pval(pchisq(tests$tw_age$chisq, df = 4 - 1, lower.tail = FALSE), digits = 3)
+  )
+)
+```
+
+```{r,echo=F}
+kable(
+  df_tests,
+  caption   = "Hypothesis Tests for Survival Differences",
+  col.names = c("Covariate", "TS", "p-value", "TS", "p-value", "TS", "p-value"),
+  booktabs  = TRUE,
+  format    = "latex",
+  digits    = c(0, 2, 3, 2, 3, 2, 3),
+  label = "hyp"
+) %>%
+  add_header_above(
+    c(" " = 1,
+      "Log-rank Test"   = 2,
+      "Gehan's Test"    = 2,
+      "Tarone–Ware Test"= 2)
+  ) %>%
+  kable_styling(latex_options = c("HOLD_position", "striped"),
+                font_size = 9) %>%
+  column_spec(1, width = "2.5cm") %>%
+  column_spec(2:7, width = "1.3cm") %>%
+  row_spec(0, bold = TRUE, color = "white", background = "#6B7280") %>%
+  row_spec(1:2, color = "black", background = "#F9FAFB")
+```
+
+## Interpretation
+
+-   **Mismatch Score**: The Log-rank test yields a test statistic of 3.18 ($p = 0.365$), Gehan-Wilcoxon $4.08\, (p = 0.253)$, and Tarone-Ware $3.56 \,(p = 0.313)$. All $p$-values are above $0.05$, indicating no statistically significant differences in survival across T5 mismatch score quartiles. This suggests that the degree of donor-recipient mismatch, as measured by T5, may not strongly influence survival in this cohort.
+-   **Age Quartile**: The Log-rank test gives a test statistic of $13.71\, (p = 0.003)$ , Gehan-Wilcoxon $13.17\, (p = 0.004)$, and Tarone-Ware $13.64\, (p = 0.003)$. All $p$-values are below $0.05$, confirming significant differences in survival across age quartiles. Older patients (Q4) likely experience worse survival outcomes compared to younger patients (Q1), consistent with the Kaplan-Meier curves observed earlier.
+
+Based on the hypothesis test results, the age quartile $\left(Z_1\right)$ was identified as a significant covariate influencing survival outcomes ($p < 0.05$ across Log-rank, Gehan-Wilcoxon, and Tarone-Ware tests), whereas the T5 mismatch score showed no significant effect ($p > 0.05$). Consequently, subsequent survival modeling, including the Cox proportional hazards and Accelerated Failure Time (AFT) models, will incorporate age quartile as the primary covariate to explore its impact on survival time. This approach ensures that the analysis focuses on the variable with statistically significant differences, providing a robust basis for understanding how age influences post-transplantation survival in the Stanford2 dataset.
+
+# Cox PH Model
+
+The Cox PH model is the following,$$
+h\left(\left.t\right|Z_1=z\right)=h_0\left(t\right)e^{\beta z},
+$$where $h_0\left(\centerdot\right)$ is the baseline hazard function.
+
+## Graphical Check
+
+The Cox-Snell residuals $\left(r_i\right)$ provides a quick overview of the applicability of Cox PH Model, given by,$$
+r_i=\hat{H_0}\left(t\right)e^{z_{1i}\hat{\beta}},
+$$with $\hat{H}_0$ is estimated $H_0$ from Breslow's Baseline Hazard and $\hat{\beta}$ is the Maximum Partial Likelihood estimate of $\beta$. Then $-\ln\hat{S}_{KM}\left(r_i\right)$ against $r_i$ is plotted.
+
+To assess the goodness-of-fit of the Cox proportional hazards model with age quartile as the covariate, Cox-Snell residuals were calculated and analyzed. These residuals, representing the estimated cumulative hazard for each observation, were used to construct a Kaplan-Meier survival curve. The cumulative hazard of the residuals was plotted against the residuals themselves. A well-fitted model should produce a plot that approximates a $45$-degree line.
+
+```{r,echo=F,fig.cap="Cox-Snell residual plot",warning=F}
+cox_model <- coxph(Surv(time, status) ~ age_group, data = stan2)
+# Extract martingale residuals
+mart_res <- residuals(cox_model, type = "martingale")
+# Calculate Cox-Snell residuals
+cox_snell_res <- stan2$status - mart_res
+# Create a Surv object for residuals
+surv_res <- Surv(cox_snell_res, stan2$status)
+# Fit Kaplan-Meier to residuals
+km_res <- survfit(surv_res ~ 1)
+# Extract survival probabilities and times
+res_time <- summary(km_res)$time
+res_surv <- summary(km_res)$surv
+# Calculate cumulative hazard
+cum_hazard <- -log(res_surv)
+plot_data <- data.frame(residuals = res_time, cum_hazard = cum_hazard)
+ggplot(plot_data, aes(x = residuals, y = cum_hazard)) +
+  # main points
+  geom_point(color = "#2C3E50", size = 2.5, alpha = 0.6, shape = 16) +
+  # 1:1 reference line
+  geom_abline(slope = 1, intercept = 0, 
+              color = "#E74C3C", linetype = "dashed", linewidth = 0.8) +
+  # annotate the line
+  annotate("text", x = max(plot_data$residuals, na.rm=TRUE)*0.7, 
+           y = max(plot_data$cum_hazard, na.rm=TRUE)*0.7,
+           label = "45° line\n(perfect fit)", 
+           color = "#E74C3C", 
+           size = 4, 
+           hjust = 0, vjust = 0) +
+  # add marginal rugs
+  geom_rug(color = "#34495E", alpha = 0.3, length = unit(0.02, "npc")) +
+  # labels and titles
+  labs(
+    title    = "Graphical Check for Cox Proportional Hazardness \n via Cox-Snell Residuals",
+    subtitle = "Ideally points follow the 45° line for a good fit",
+    x        = "Cox–Snell Residual",
+    y     = expression(-ln(hat(S)[KM](r[i])))
+  ) +
+  # theme tweaks
+  theme_minimal(base_family = "Helvetica") +
+  theme(
+    plot.title       = element_text(size = 16, face = "bold", hjust = 0.5),
+    plot.subtitle    = element_text(size = 12, color = "#555555", hjust = 0.5),
+    axis.title       = element_text(size = 12, face = "bold"),
+    axis.text        = element_text(size = 10),
+    panel.grid.major = element_line(color = "#DDDDDD", size = 0.5),
+    panel.grid.minor = element_blank(),
+    panel.background = element_rect(fill = "#FAFAFA", color = NA),
+    plot.background  = element_rect(fill = "#FAFAFA", color = NA),
+    legend.position  = "none"
+  )
+```
+
+\FloatBarrier
+
+### Interpretation
+
+The close adherence of the Cox-Snell residuals to the $45$-degree line suggests that the Cox PH model is well-specified for the Stanford2 dataset when using age quartile as the covariate. This confirms that the model effectively describes the relationship between age groups and survival outcomes. However, to ensure robustness, additional diagnostics, such as testing the proportional hazards assumption using Schoenfeld residuals, could further validate the model’s assumptions.
+
+## PH assumption check
+
+\hyperref[tab:PH2]{Table~\ref{tab:PH2}} presents the results of the proportional hazards assumption test for the Cox PH model:
+
+```{r,echo=F}
+cox_mod <- coxph(Surv(time, status) ~ t5 + age, data = stan2)
+cox_sum <- summary(cox_mod)
+cox_df <- data.frame(
+  Covariate = rownames(cox_sum$coefficients),
+  HR        = round(cox_sum$coefficients[,"exp(coef)"], 3),
+  `95% CI`  = paste0("[",round(cox_sum$conf.int[,"lower .95"],3),", ",round(cox_sum$conf.int[,"upper .95"],3),"]"),
+  p.value   = round(cox_sum$coefficients[,"Pr(>|z|)"], 4)
+)
+```
+
+```{r,echo=F,warning=F,message=F}
+
+# Test PH assumption
+drv <- cox.zph(cox_mod)
+
+# Create table for cox.zph results (focus on age and global test)
+drv_df <- as.data.frame(drv$table) %>%
+  mutate(Covariate = rownames(.)) %>%
+  filter(Covariate %in% c("age", "GLOBAL")) %>%
+  select(Covariate, chisq, df, p) %>%
+  mutate(chisq = round(chisq, 2), p = round(p, 3))
+
+# Styled LaTeX table
+kable(drv_df,
+      caption = "Proportional Hazards Assumption Test",
+      col.names = c("Covariate", "Chi-Square", "DF", "p-value"),
+      digits = c(0, 2, 0, 3),
+      format = "latex",
+      booktabs = TRUE,
+      row.names = FALSE,
+      label = "PH2") %>%
+  kable_styling(latex_options = c("HOLD_position", "striped"),
+                font_size = 9) %>%
+  column_spec(1, width = "2.5cm") %>%
+  column_spec(2:4, width = "1.8cm") %>%
+  row_spec(0, bold = TRUE, color = "white", background = "#6B7280") %>%
+  row_spec(1:2, color = "black", background = "#F9FAFB")
+
+
+```
+
+```{r,echo=F,warning=F,message=F,fig.cap="Schoenfeld Residuals for Age"}
+# Extract Schoenfeld residuals for age
+# Check if 'age' exists in drv$y
+y_names <- colnames(drv$y)
+age_index <- which(y_names == "age")
+if (length(age_index) == 0) {
+  stop("Column 'age' not found in drv$y. Check cox_mod and stan2 data.")
+}
+
+# Create data frame for plotting (omit SE if variances are unavailable)
+res_data <- data.frame(
+  Time = drv$time,
+  Residual = drv$y[, age_index]
+)
+
+# Check if variance exists for age
+var_names <- colnames(drv$var)
+var_age_index <- which(var_names == "age")
+if (length(var_age_index) > 0) {
+  res_data$SE <- sqrt(drv$var[, var_age_index])
+}
+
+# Styled ggplot2 plot
+p <- ggplot(res_data, aes(x = Time, y = Residual)) +
+  geom_point(color = "#4B5EAA", alpha = 0.6) +
+  geom_smooth(method = "loess", se = FALSE, color = "#D97706", linewidth = 1) +
+  geom_hline(yintercept = 0, linetype = "dashed", color = "black") +
+  labs(x = "Time (days)", y = "Scaled Schoenfeld Residuals",
+       title = "Schoenfeld Residuals for Age in Cox PH Model") +
+  theme_minimal(base_size = 12) +
+  theme(
+    plot.title = element_text(hjust = 0.5, face = "bold"),
+    axis.title = element_text(face = "bold"),
+    panel.grid.minor = element_blank()
+  )
+p
+```
+
+\FloatBarrier
+
+The chi-square test for age yields a statistic of $0.83$ with a $p$-value of $0.362$ (\hyperref[tab:PH2]{Table~\ref{tab:PH2}}), indicating no evidence of a time-varying effect ($p > 0.05$). The global test ($\chi^2=2.77,p=0.251$) further supports the model’s overall adherence to the PH assumption. The Schoenfeld residual plot reinforces this, showing no systematic trend, which confirms that the hazard ratio for age remains constant over time. These results validate the use of the Cox PH model with age as a covariate in the Stanford2 dataset.
+
+## Model fitting
+
+\hyperref[tab:PH]{Table~\ref{tab:PH}} presents the estimates from the Cox PH model for the age covariate:
+
+```{r,echo=F}
+kable(cox_df[cox_df$Covariate == "age", ],  # Select only the 'age' row
+      caption = "Cox PH Model Estimates",
+      digits = c(0, 3, 0, 4),  # No decimals for Covariate, 3 for HR, 0 for CI (as text), 4 for p-value
+      format = "latex",
+      booktabs = TRUE,
+      row.names = FALSE,
+      label = "PH") %>%  # Remove row names
+  kable_styling(latex_options = c("HOLD_position", "striped"),
+                font_size = 9) %>%
+  column_spec(1, width = "2.5cm") %>%
+  column_spec(2:4, width = "2cm") %>%
+  row_spec(0, bold = TRUE, color = "white", background = "#6B7280") %>%
+  row_spec(1, color = "black", background = "#F9FAFB")
+```
+
+# AFT Model
+
+An Accelerating Failure Time (AFT) model is of the form,$$\ln T=\alpha+\beta Z_1+\sigma W$$where $\sigma >0$ and $W\sim\left(0,1\right)$ @kalbfleisch2002statistical.
+
+Two AFT models were fitted to the Stanford2 dataset using age as a continuous covariate: one with a *Weibull* error distribution and one with a *Lognormal* error distribution. The models estimate the acceleration factor for age, indicating how a one-year increase in age affects survival time. A table summarizes the coefficients, standard errors, $p$-values, and AIC for both models. A plot compares the predicted survival curves from both AFT models against the Kaplan-Meier (KM) estimate to visually assess model fit.
+
+\hyperref[tab:AFT]{Table~\ref{tab:AFT}} presents the estimates from the Weibull and lognormal AFT models for the age covariate:
+
+```{r,echo=F}
+# Fit AFT models
+aft_weibull <- survreg(Surv(time, status) ~ age, data = stan2, dist = "weibull")
+aft_lognormal <- survreg(Surv(time, status) ~ age, data = stan2, dist = "lognormal")
+
+# Extract model summaries
+weibull_sum <- summary(aft_weibull)
+lognormal_sum <- summary(aft_lognormal)
+
+# Create data frame for table
+aft_df <- data.frame(
+  Model = c("Weibull", "Lognormal"),
+  Covariate = "Age",
+  Coefficient = c(weibull_sum$table["age", "Value"], lognormal_sum$table["age", "Value"]),
+  SE = c(weibull_sum$table["age", "Std. Error"], lognormal_sum$table["age", "Std. Error"]),
+  p.value = c(weibull_sum$table["age", "p"], lognormal_sum$table["age", "p"]),
+  AIC = c(AIC(aft_weibull), AIC(aft_lognormal))
+) %>%
+  mutate(Coefficient = round(Coefficient, 3),
+         SE = round(SE, 3),
+         p.value = round(p.value, 3),
+         AIC = round(AIC, 2))
+
+# Styled LaTeX table
+kable(aft_df,
+      caption = "AFT Model Estimates",
+      col.names = c("Model", "Covariate", "Coefficient", "SE", "p-value", "AIC"),
+      digits = c(0, 0, 3, 3, 3, 2),
+      format = "latex",
+      booktabs = TRUE,
+      row.names = FALSE,
+      label = "AFT") %>%
+  kable_styling(latex_options = c("HOLD_position", "striped"),
+                font_size = 9) %>%
+  column_spec(1, width = "2cm") %>%
+  column_spec(2, width = "2cm") %>%
+  column_spec(3:6, width = "1.5cm") %>%
+  row_spec(0, bold = TRUE, color = "white", background = "#6B7280") %>%
+  row_spec(1:2, color = "black", background = "#F9FAFB")
+
+```
+
+```{r, echo=FALSE,warning=F,message=F ,fig.cap="KM and AFT Model Survival Curves (manual AFT)"}
+# 1) Kaplan–Meier
+km_fit  <- survfit(Surv(time, status) ~ 1, data = stan2)
+km_data <- tibble(
+  Time  = km_fit$time,
+  Surv  = km_fit$surv,
+  Model = "Kaplan–Meier"
+)
+
+# 2) Prep for manual AFT curves
+mean_age <- mean(stan2$age, na.rm = TRUE)
+time_grid <- seq(0, 4000, by = 10)
+
+# 2a) Weibull (survreg’s "weibull" is log-location–scale with EV error)
+coefs_w <- coef(aft_weibull)
+mu_w    <- coefs_w["(Intercept)"] + coefs_w["age"] * mean_age
+sigma_w <- aft_weibull$scale
+weibull_surv <- exp(-exp((log(time_grid) - mu_w) / sigma_w))
+weibull_data <- tibble(
+  Time  = time_grid,
+  Surv  = weibull_surv,
+  Model = "Weibull"
+)
+
+# 2b) Log-normal
+coefs_ln <- coef(aft_lognormal)
+mu_ln    <- coefs_ln["(Intercept)"] + coefs_ln["age"] * mean_age
+sigma_ln <- aft_lognormal$scale
+lognormal_surv <- 1 - pnorm((log(time_grid) - mu_ln) / sigma_ln)
+lognormal_data <- tibble(
+  Time  = time_grid,
+  Surv  = lognormal_surv,
+  Model = "Lognormal"
+)
+
+# 3) Combine & plot
+plot_data <- bind_rows(km_data, weibull_data, lognormal_data)
+
+ggplot(plot_data, aes(x = Time, y = Surv, color = Model, linetype = Model)) +
+  geom_line(linewidth = 1) +
+  scale_color_manual(
+    values = c(
+      "Kaplan–Meier" = "#4B5EAA",
+      "Weibull"      = "#D97706",
+      "Lognormal"    = "#059669"
+    )
+  ) +
+  scale_linetype_manual(
+    values = c(
+      "Kaplan–Meier" = "solid",
+      "Weibull"      = "dashed",
+      "Lognormal"    = "dotted"
+    )
+  ) +
+  coord_cartesian(xlim = c(0, 4000)) +
+  labs(
+    x     = "Time (days)",
+    y     = "Survival Probability",
+    title = "Comparison of Kaplan–Meier and AFT Model Survival Curves"
+  ) +
+  theme_minimal() +
+  theme(
+    plot.title       = element_text(hjust = 0.5, face = "bold"),
+    axis.title       = element_text(face = "bold"),
+    legend.position  = "bottom",
+    legend.title     = element_blank(),
+    panel.grid.minor = element_blank()
+  )
+```
+
+\FloatBarrier
+
+The above figure displays the Kaplan-Meier survival curve alongside the predicted survival curves from the Weibull and lognormal AFT models, evaluated at the mean age. Both AFT curves align closely with the KM curve, indicating good model fit. The lognormal model shows a slightly better fit, as evidenced by its lower AIC ($1575.25$ vs. $1576.03$). The Weibull model slightly underestimates survival at early time points, while the lognormal model tracks the KM curve more consistently across the time range.
+
+## Interpretation
+
+The Weibull AFT model estimates a coefficient of $-0.057$ for age ($p = 0.005$) , indicating that each one-year increase in age reduces the expected survival time by approximately $5.5\%$ (\hyperref[tab:AFT]{Table~\ref{tab:AFT}}). The lognormal AFT model estimates a coefficient of $-0.039$ ($p = 0.047$), suggesting a $3.8\%$ reduction per year. Both models confirm that older age significantly shortens survival time, with the lognormal model’s lower AIC ($1575.25$ vs. $1576.03$) indicating a slightly better balance of fit and complexity. The survival curve plot supports this, showing that the lognormal model’s predicted curve aligns more closely with the KM estimate. These results reinforce age as a key predictor of survival in the Stanford2 cohort, consistent with prior Cox PH model findings.
+
+# Conclusion
+
+The survival analysis of the Stanford2 heart transplant dataset identifies patient age as a key predictor of survival, while the T5 mismatch score shows no significant impact. Non-parametric Kaplan-Meier and Nelson-Aalen estimators reveal poorer survival for older patients, confirmed by hypothesis tests showing significant differences across age groups but not T5 mismatch levels. The Cox proportional hazards model, validated by residual diagnostics, underscores age’s role in increasing hazard rates. Parametric Weibull and lognormal AFT models quantify age’s effect on survival time, with the lognormal model offering a slightly better fit. These findings emphasize age as a critical factor in heart transplant outcomes, guiding clinical strategies while downplaying the prognostic role of T5 mismatch.
+
+# Contribution
+
+This project was a collaborative effort among three team members: Sourav Biswas, Subhendu Ghosh, and Rupanjan Mukherjee. Sourav was responsible for collecting and preparing the data, ensuring it was clean and suitable for analysis. He also formatted the final report, giving it a professional and polished appearance. Additionally, Sourav conducted hypothesis testing and fitted the Proportional Hazards (PH) model, performing rigorous statistical analysis to validate the findings. Subhendu focused on fitting the Accelerated Failure Time (AFT) model, selecting the appropriate distribution and estimating its parameters to provide valuable insights into the data. Rupanjan handled the hazard survival estimation, calculating survival probabilities and hazard rates, which were critical for understanding the survival dynamics in the dataset. Each team member wrote their own code for their respective contributions and authored the corresponding sections of the report, ensuring accuracy and clarity in the documentation. Throughout the project, all members actively participated, bringing their expertise and dedication to successfully achieve the project’s objectives.
+
+Entire analysis has been implemented in R. You can find the codes on \href{https://github.com/SB2003ISI/SurvivalAnalysis/tree/main}{\textcolor{NavyBlue}{\faGithub\,GitHub}}.
